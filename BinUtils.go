@@ -47,23 +47,31 @@ func (b *ByteStream) ReadNextString() string {
 // with data from the byte stream
 func (b *ByteStream) ReadAsStruct(s interface{}) {
 	stMeta := reflect.ValueOf(s).Elem()
+	if stMeta.Kind() != reflect.Struct {
+		panic("Expecting struct instead of other types")
+	}
+	recurseStruct(b, stMeta)
+}
 
-	for i := 0; i < stMeta.NumField(); i++ {
-		field := stMeta.Field(i)
+func recurseStruct(b *ByteStream, v reflect.Value) {
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
 		if field.CanSet() {
-			switch field.Type().String() {
-			case "uint16":
+			switch field.Kind() {
+			case reflect.Uint16:
 				field.SetUint(uint64(b.ReadNextUINT16()))
-			case "uint32":
+			case reflect.Uint32:
 				field.SetUint(uint64(b.ReadNextUINT32()))
-			case "uint64":
+			case reflect.Uint64:
 				field.SetUint(b.ReadNextUINT64())
-			case "string":
+			case reflect.String:
 				field.SetString(b.ReadNextString())
-			case "[]byte":
+			case reflect.Slice:
 				capacity := field.Cap()
 				field.SetBytes(b.data[b.pos : b.pos+capacity])
 				b.pos += capacity
+			case reflect.Struct:
+				recurseStruct(b, field)
 			default:
 				panic("Does not support other types!")
 			}
