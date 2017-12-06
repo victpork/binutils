@@ -1,5 +1,5 @@
 # BinUtils - turns network protocol binary stream into Go struct
-BinUtils helps to convert `[]byte` array captured from binary protocl connections into struct, just like what you have in languages like C++
+BinUtils helps to convert `[]byte` array captured from binary protocl connections into struct, just like what you have in languages like C/C++
 
 ### Download and install
 In command prompt:
@@ -28,16 +28,12 @@ type TestStruct struct {
 ...
 var t TestStruct
 binData := getByteArrayFromSomewhere()
-bStream := CreateByteStream(binData)
-bStream.ReadAsStruct(&t)
+binutils.Unmarshall(binData, &t)
 
 fmt.printf("A:%v B:%v C:%v", t.FieldA, t.FieldB, t.FieldC)
 ```
-
-You can also reads a single variable:
-```go
-str := bStream.ReadNextString()
-```
+### Design
+BinUtils uses reflection to read in the structure of the datatype. It maybe slower, but saves you writing struct metadata along the code.
 
 ### Limitations
-Currently the library supports `uint16`, `uint32`, `uint64` and `string` as datatypes for the field, plus nested struct (both named and anonymous). Support for slice(array) is coming soon!
+Currently the library supports `bool`, `uint16`, `uint32`, `uint64` and `string` as datatypes for the field, plus nested struct (both named and anonymous), fixed sized array with above data types. Support for slices, array of struct is coming soon!
