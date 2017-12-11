@@ -157,7 +157,6 @@ func TestNestedStruct(t *testing.T) {
 }
 
 func TestBasicArray(t *testing.T) {
-	//t.Skip()
 	var result []uint16
 	b := []byte{0, 0, 0, 1, 0, 2}
 	expected := []uint16{uint16(0), uint16(1), uint16(2)}

@@ -3,7 +3,6 @@ package binutils
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"reflect"
 )
 
@@ -19,7 +18,7 @@ func readNextString(b []byte, p *int) (res string) {
 func Unmarshall(b []byte, s interface{}) {
 	pos := 0
 
-	switch v := s.(type) {
+	switch s.(type) {
 	case *string:
 		s := s.(*string)
 		*s = readNextString(b, &pos)
@@ -27,14 +26,14 @@ func Unmarshall(b []byte, s interface{}) {
 		re := bytes.NewReader(b)
 		err := binary.Read(re, binary.BigEndian, s)
 		if err != nil {
-			panic("Could not read data from byte stream")
+			panic("Could not read data from binary stream")
 		}
 	default:
 		sType := reflect.ValueOf(s).Elem()
 		if sType.Kind() == reflect.Struct {
 			recurseReadStruct(b, sType, &pos)
 		} else {
-			panic(fmt.Sprintf("Does not support type %T", v))
+			panic("Unsupported type " + sType.Kind().String())
 		}
 	}
 }
@@ -51,7 +50,7 @@ func Marshall(s interface{}) (b []byte) {
 		buf := new(bytes.Buffer)
 		err := binary.Write(buf, binary.BigEndian, s)
 		if err != nil {
-			panic("Could not read data from byte stream")
+			panic("Could not read data from binary stream")
 		}
 		b = buf.Bytes()
 	default:
@@ -60,7 +59,7 @@ func Marshall(s interface{}) (b []byte) {
 			b = make([]byte, sizeOfStruct(uValue))
 			b = recurseWriteStruct(uValue, b)
 		} else {
-			panic("Expecting struct instead of other types")
+			panic("Unsupported type " + uValue.Kind().String())
 		}
 	}
 	return
@@ -153,7 +152,7 @@ func readArray(b []byte, baseType reflect.Type, size int, p *int) (v reflect.Val
 		err := binary.Read(re, binary.BigEndian, valueInterface)
 
 		if err != nil {
-			panic(fmt.Sprintf("Does not support type: %v", err))
+			panic("Could not read data from binary stream")
 		}
 	}
 	v = reflect.Indirect(v)
@@ -213,7 +212,7 @@ func recurseReadStruct(b []byte, v reflect.Value, p *int) {
 				field.Set(readArray(b, field.Type().Elem(), capacity, p).Slice(0, capacity))
 				*p += capacity * int(field.Type().Elem().Size())
 			default:
-				panic("Does not support other types!")
+				panic("Unsupported type " + field.Kind().String())
 			}
 		}
 	}
