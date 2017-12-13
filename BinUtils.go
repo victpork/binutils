@@ -1,3 +1,5 @@
+// Package binutils provides ways of encoding and decoding traditional C/C++
+// data structs for use in binary network protocols.
 package binutils
 
 import (
@@ -43,9 +45,9 @@ func Unmarshall(b []byte, s interface{}) {
 func Marshall(s interface{}) (b []byte) {
 	switch v := s.(type) {
 	case *string:
-		lenByteArr := make([]byte, 4)
-		binary.BigEndian.PutUint32(lenByteArr, uint32(len(*v)))
-		b = append(lenByteArr, *v...)
+		b = make([]byte, 4+len(*v))
+		binary.BigEndian.PutUint32(b, uint32(len(*v)))
+		copy(b[4:], []byte(*v))
 	case *uint8, *uint16, *uint32, *uint64, *int8, *int16, *int32, *int64, *[]uint8, *[]uint16, *[]uint32, *[]uint64:
 		buf := new(bytes.Buffer)
 		err := binary.Write(buf, binary.BigEndian, s)
@@ -56,8 +58,8 @@ func Marshall(s interface{}) (b []byte) {
 	default:
 		uValue := reflect.ValueOf(s).Elem()
 		if uValue.Kind() == reflect.Struct {
-			b = make([]byte, sizeOfStruct(uValue))
-			b = recurseWriteStruct(uValue, b)
+			b = make([]byte, sizeOfType(s))
+			recurseWriteStruct(uValue, b[:0])
 		} else {
 			panic("Unsupported type " + uValue.Kind().String())
 		}
@@ -65,39 +67,60 @@ func Marshall(s interface{}) (b []byte) {
 	return
 }
 
-// sizeOfStruct returns the number of bytes required to represent the struct(variable)
-func sizeOfStruct(v reflect.Value) (size int) {
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		if field.CanSet() {
-			switch field.Kind() {
-			case reflect.Bool, reflect.Uint8, reflect.Int8:
-				size++
-			case reflect.Uint16, reflect.Int16:
-				size += 2
-			case reflect.Uint32, reflect.Int32:
+// sizeOfType returns the number of bytes required to represent the variable
+func sizeOfType(i interface{}) (size int) {
+	switch i.(type) {
+	case *bool, *int8, *uint8, bool, int8, uint8:
+		size = 1
+	case []bool:
+		size = len(i.([]bool))
+	case *uint16, *int16, uint16, int16:
+		size = 2
+	case []uint16, []int16:
+		size = 2 * len(i.([]uint16))
+	case *uint32, *int32, uint32, int32:
+		size = 4
+	case *uint64, *int64, uint64, int64:
+		size = 8
+	case *string, string:
+		size = 4 + len(i.(string))
+	default:
+		v := reflect.ValueOf(i)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		switch v.Kind() {
+		case reflect.Slice:
+			if v.Len() > 0 {
 				size += 4
-			case reflect.Uint64, reflect.Int64:
-				size += 8
-			case reflect.Struct:
-				size += sizeOfStruct(field.Elem())
-			case reflect.String:
-				size += 4 + field.Len()
-			case reflect.Array:
-				size += sizeOfStruct(field.Elem()) * field.Len()
-			case reflect.Slice:
-				size += 4 + sizeOfStruct(field.Elem())*field.Len()
+				for i := 0; i < v.Len(); i++ {
+					size += sizeOfType(v.Index(i).Interface())
+				}
+			}
+		case reflect.Struct:
+			for i := 0; i < v.NumField(); i++ {
+				field := v.Field(i)
+				size += sizeOfType(field.Interface())
+			}
+		case reflect.Array:
+			underlyingType := v.Type().Elem()
+			if underlyingType.Kind() == reflect.Struct {
+				for i := 0; i < v.Len(); i++ {
+					size += sizeOfType(v.Index(i).Interface())
+				}
+			} else if underlyingType.Kind() == reflect.Array || underlyingType.Kind() == reflect.Slice {
+				panic("Does not support multidimension array/slices")
+			} else {
+				size = sizeOfType(v.Index(0).Interface()) * v.Len()
 			}
 		}
 	}
 	return
 }
 
-func recurseWriteStruct(v reflect.Value, b []byte) (res []byte) {
-	// TODO: Optimize memory usage
-
-	copy(res, b)
+func recurseWriteStruct(v reflect.Value, b []byte) int {
 	for i := 0; i < v.NumField(); i++ {
+		pos := len(b)
 		field := v.Field(i)
 		if field.CanSet() {
 			switch field.Kind() {
@@ -106,35 +129,64 @@ func recurseWriteStruct(v reflect.Value, b []byte) (res []byte) {
 				if v.Bool() {
 					bit = 1
 				}
-				res = append(res, bit)
+				b = append(b, bit)
 			case reflect.Uint8:
-				res = append(res, uint8(field.Uint()))
+				b = append(b, uint8(field.Uint()))
 			case reflect.Uint16:
-				buf := make([]byte, 2)
-				binary.BigEndian.PutUint16(buf, uint16(field.Uint()))
-				res = append(res, buf...)
+				binary.BigEndian.PutUint16(b[pos:], uint16(field.Uint()))
 			case reflect.Uint32:
-				buf := make([]byte, 4)
-				binary.BigEndian.PutUint32(buf, uint32(field.Uint()))
-				res = append(res, buf...)
+				b = b[:pos+4]
+				binary.BigEndian.PutUint32(b[pos:], uint32(field.Uint()))
 			case reflect.Uint64:
-				buf := make([]byte, 8)
-				binary.BigEndian.PutUint64(buf, field.Uint())
-				res = append(res, buf...)
+				b = b[:pos+8]
+				binary.BigEndian.PutUint64(b[pos:], field.Uint())
 			case reflect.String:
-				lenByteArr := make([]byte, 4)
-				binary.BigEndian.PutUint32(lenByteArr, uint32(field.Len()))
-				res = append(res, lenByteArr...)
-				res = append(res, []byte(field.String())...)
+				strLen := field.Len()
+				b = b[:pos+4+strLen]
+				binary.BigEndian.PutUint32(b[pos:], uint32(strLen))
+				copy(b[pos+4:], []byte(field.String()))
 			case reflect.Struct:
-				res = append(recurseWriteStruct(field, res))
+				pos += recurseWriteStruct(field, b[pos:])
+				b = b[:pos]
+			case reflect.Slice:
+				b = b[:pos+4]
+				binary.BigEndian.PutUint32(b[pos:pos+4], uint32(field.Len()))
+				pos += 4
+				fallthrough
+			case reflect.Array:
+				pos += writeArrayToByte(b[pos:pos], field)
+				b = b[pos:pos]
 			}
 		}
+	}
+	return len(b)
+}
+
+func writeArrayToByte(b []byte, array reflect.Value) (pos int) {
+	size := array.Len()
+	switch array.Type().Elem().Kind() {
+	case reflect.Struct:
+		for i := 0; i < size; i++ {
+			pos += recurseWriteStruct(array.Index(i), b[pos:])
+			b = b[:pos]
+		}
+	case reflect.Array, reflect.Slice:
+		panic("Does not support multidimensional array/slice")
+	default:
+		pArray := array.Interface()
+		buf := bytes.NewBuffer(make([]byte, size)[:0])
+		err := binary.Write(buf, binary.BigEndian, pArray)
+		if err != nil {
+			panic("Could not write to byte stream")
+		}
+		pos = buf.Len()
+		b = b[:pos]
+		copy(b, buf.Bytes())
 	}
 	return
 }
 
-func readArray(b []byte, baseType reflect.Type, size int, p *int) (v reflect.Value) {
+func readArrayFromByte(b []byte, baseType reflect.Type, size int, p *int) (v reflect.Value) {
 	v = reflect.New(reflect.ArrayOf(size, baseType))
 	valueInterface := v.Interface()
 	switch baseType.Kind() {
@@ -143,10 +195,11 @@ func readArray(b []byte, baseType reflect.Type, size int, p *int) (v reflect.Val
 			v.Elem().Index(i).Set(reflect.ValueOf(readNextString(b, p)))
 		}
 	case reflect.Struct:
-		//Todo: support array of struct
 		for i := 0; i < size; i++ {
 			recurseReadStruct(b, v.Elem().Index(i), p)
 		}
+	case reflect.Array, reflect.Slice:
+		panic("Does not support multidimensional array/slice")
 	default:
 		re := bytes.NewReader(b[*p:])
 		err := binary.Read(re, binary.BigEndian, valueInterface)
@@ -200,7 +253,7 @@ func recurseReadStruct(b []byte, v reflect.Value, p *int) {
 					tmpSlice := b[*p : *p+capacity]
 					reflect.Copy(field, reflect.ValueOf(tmpSlice))
 				} else {
-					field.Set(readArray(b, field.Type().Elem(), capacity, p))
+					field.Set(readArrayFromByte(b, field.Type().Elem(), capacity, p))
 				}
 				*p += capacity * int(field.Type().Elem().Size())
 			case reflect.Struct:
@@ -209,7 +262,7 @@ func recurseReadStruct(b []byte, v reflect.Value, p *int) {
 				capacity := int(binary.BigEndian.Uint32(b[*p : *p+4]))
 				*p += 4
 				// Todo: This line is so slow...
-				field.Set(readArray(b, field.Type().Elem(), capacity, p).Slice(0, capacity))
+				field.Set(readArrayFromByte(b, field.Type().Elem(), capacity, p).Slice(0, capacity))
 				*p += capacity * int(field.Type().Elem().Size())
 			default:
 				panic("Unsupported type " + field.Kind().String())

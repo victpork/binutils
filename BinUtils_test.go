@@ -6,12 +6,39 @@ import (
 	"testing"
 )
 
+func TestMarshallNumbers(t *testing.T) {
+	s := uint32(1604)
+	result := Marshall(&s)
+	expected := []byte{0, 0, 6, 68}
+	if bytes.Compare(result, expected) != 0 {
+		t.Errorf("Result does not match expected, expected '%v' now '%v'", expected, result)
+	}
+}
+
+func TestUnsupportedTypes(t *testing.T) {
+	type intType struct {
+		FieldA int
+		FieldB uint
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expecting panic on unsupported type")
+		}
+	}()
+
+	var result intType
+	b := []byte{0, 0, 0, 13, 0, 0, 0, 50}
+	Unmarshall(b, &result)
+
+}
+
 func TestMarshallString(t *testing.T) {
 	testStr := "HelloWorld"
 	expected := []byte{0, 0, 0, 10, 72, 101, 108, 108, 111, 87, 111, 114, 108, 100}
 	result := Marshall(&testStr)
 	if !bytes.Equal(result, expected) {
-		t.Errorf("Term does not match, expected '%v' now '%v'", expected, result)
+		t.Errorf("Result does not match expected, expected '%v' now '%v'", expected, result)
 	}
 }
 
@@ -29,7 +56,50 @@ func TestMarshallStruct(t *testing.T) {
 		0, 0}
 	result := Marshall(&original)
 	if !bytes.Equal(result, expected) {
-		t.Errorf("Term does not match, expected '%v' now '%v'", expected, result)
+		t.Errorf("Result does not match expected, expected:\n '%v'\n now:\n '%v'", expected, result)
+	}
+}
+
+func TestMarshallComplexStruct(t *testing.T) {
+	type innerStruct struct {
+		A string
+		B uint64
+	}
+	type structA struct {
+		A uint8
+		B uint32
+		C string
+		D [3]byte
+		E []innerStruct
+	}
+
+	v := structA{A: 7,
+		B: 12,
+		C: "Good2",
+		D: [3]byte{5, 7, 9},
+		E: []innerStruct{
+			{A: "Hello",
+				B: 17},
+			{A: "Goodbye",
+				B: 27},
+			{A: "Helloe",
+				B: 95},
+		}}
+	expected := []byte{7, 0, 0, 0, 12, 0, 0, 0, 5, 71, 111, 111, 100, 50,
+		5, 7, 9, 0, 0, 0, 3,
+		0, 0, 0, 5, 72, 101, 108, 108, 111, 0, 0, 0, 0, 0, 0, 0, 17,
+		0, 0, 0, 7, 71, 111, 111, 100, 98, 121, 101, 0, 0, 0, 0, 0, 0, 0, 27,
+		0, 0, 0, 6, 72, 101, 108, 108, 111, 101, 0, 0, 0, 0, 0, 0, 0, 95}
+	result := Marshall(&v)
+	if !bytes.Equal(result, expected) {
+		PrintCompareByteArray(expected, result, t)
+		t.Errorf("Result does not match expected, expected:\n '%v'(%v)\n now:\n '%v'(%v)", expected, len(expected), result, len(result))
+	}
+}
+
+func PrintCompareByteArray(a, b []byte, t *testing.T) {
+	for i, v := range a {
+		t.Logf("A:%v B:%v", v, b[i])
 	}
 }
 
@@ -50,7 +120,7 @@ func TestSSHPtyRequest(t *testing.T) {
 		0, 0, 0, 0, 0, 21, 3, 0, 0, 0, 127, 42, 0, 0, 0, 1, 128, 0, 0, 150, 0, 129, 0, 0, 150, 0, 0}
 	Unmarshall(b, &result)
 	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Term does not match, expected '%v' now '%v'", expected, result)
+		t.Errorf("Result does not match expected, expected '%v' now '%v'", expected, result)
 	}
 }
 
