@@ -1,5 +1,30 @@
 // Package binutils provides ways of encoding and decoding traditional C/C++
 // data structs for use in binary network protocols.
+//
+// Example:
+//  import (
+//      ...
+//      "github.com/mkishere/binutils"
+//  )
+//
+//  type TestStruct struct {
+//      FieldA uint16
+//      FieldB uint32
+//      FieldC string
+//      FieldD [3]uint64
+//      FieldE struct {
+//          FieldE1 int16
+//          FieldE2 int32
+//          FieldE3 string
+//      }
+//  }
+//
+//  ...
+//  var t TestStruct
+//  binData := getByteArrayFromSomewhere()
+//  binutils.Unmarshall(binData, &t)
+//
+//  fmt.printf("A:%v B:%v C:%v", t.FieldA, t.FieldB, t.FieldC)
 package binutils
 
 import (

@@ -2,6 +2,7 @@ package binutils
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -122,6 +123,24 @@ func TestSSHPtyRequest(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Result does not match expected, expected '%v' now '%v'", expected, result)
 	}
+}
+
+func ExampleMarshall() {
+	type sshptyRequest struct {
+		Term     string
+		Width    uint32
+		Height   uint32
+		PWidth   uint32
+		PHeight  uint32
+		TermMode []byte
+	}
+
+	var req sshptyRequest
+	b := []byte{0, 0, 0, 5, 120, 116, 101, 114, 109, 0, 0, 0, 80, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 21, 3, 0, 0, 0, 127, 42, 0, 0, 0, 1, 128, 0, 0, 150, 0, 129, 0, 0, 150, 0, 0}
+	Unmarshall(b, &req)
+	fmt.Printf("Term:%v (%v x %v)", req.Term, req.Width, req.Height)
+	// Output: Term:xterm (80 x 24)
 }
 
 func TestStructWithArrayFields(t *testing.T) {

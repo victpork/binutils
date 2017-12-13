@@ -1,5 +1,8 @@
+[![Build Status](https://api.travis-ci.org/mkishere/binutils.svg)](http://travis-ci.org/mkishere/binutils) [![GoDoc](https://godoc.org/github.com/mkishere/binutils?status.svg)](http://godoc.org/github.com/mkishere/binutils)
+
+
 # BinUtils - turns network protocol binary stream into Go struct
-BinUtils helps to convert `[]byte` array captured from binary protocl connections into struct, just like what you have in languages like C/C++
+BinUtils helps to convert `[]byte` array captured from binary protocol connections into struct, just like what you have in languages like C/C++.
 
 ### Download and install
 In command prompt:
@@ -57,5 +60,5 @@ The library uses standard network binary encoding: For numeric variables all are
 The library is for Go to communicate with pre-existing binary protocol (e.g. SSH), and efficiency is not in mind. If you are working on brand-new client/server protocol, work with a modern binary protocol like [Protocol Buffers](https://github.com/google/protobuf).
 
 ### Support datatypes
-Currently the library supports `bool`, `int`/`uint` (8/16/32/64) and `string` as datatypes for the field, plus nested struct (both named and anonymous), fixed sized array with above data types. When defining struct, please refrain from using machine dependant types `int`/`uint`.
+Currently the library supports `bool`, `int`/`uint` (8/16/32/64) and `string` as datatypes for the field, plus nested struct (both named and anonymous), fixed sized array with above data types. When defining struct, please refrain from using machine dependant types `int`/`uint`. Use lenght-specific types instead e.g `uint32`
 
