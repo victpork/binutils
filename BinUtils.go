@@ -22,7 +22,7 @@
 //  ...
 //  var t TestStruct
 //  binData := getByteArrayFromSomewhere()
-//  binutils.Unmarshall(binData, &t)
+//  binutils.Unmarshal(binData, &t)
 //
 //  fmt.printf("A:%v B:%v C:%v", t.FieldA, t.FieldB, t.FieldC)
 package binutils
@@ -40,9 +40,9 @@ func readNextString(b []byte, p *int) (res string) {
 	return
 }
 
-// Unmarshall takes a pointer to struct and try to fill the fields
+// Unmarshal takes a pointer to struct and try to fill the fields
 // with data from the byte stream. s must be a pointer to the variable
-func Unmarshall(b []byte, s interface{}) {
+func Unmarshal(b []byte, s interface{}) {
 	pos := 0
 
 	switch s.(type) {
@@ -65,9 +65,9 @@ func Unmarshall(b []byte, s interface{}) {
 	}
 }
 
-// Marshall takes a pointer to struct and try to iterate the fields
+// Marshal takes a pointer to struct and try to iterate the fields
 // and convert data format into the byte array. Returns the concat byte array
-func Marshall(s interface{}) (b []byte) {
+func Marshal(s interface{}) (b []byte) {
 	switch v := s.(type) {
 	case *string:
 		b = make([]byte, 4+len(*v))
